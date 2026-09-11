@@ -1,0 +1,396 @@
+<template>
+	<view class="uni-container">
+		<page-head :title="title"></page-head>
+
+		<view class="uni-padding-wrap uni-common-mt">
+			<view class="uni-common-mt">
+				<input class="uni-input" v-model="url" placeholder="请输入 http/https 文件地址（建议 pdf）" />
+			</view>
+
+			<view class="uni-btn-v uni-common-mt">
+				<button type="primary" @tap="downloadAndOpen">下载并预览</button>
+				<button type="primary" @tap="openUrlDirect">直接预览URL</button>
+				<button type="primary" @tap="chooseAndOpen">选择文件并预览</button>
+				<button type="primary" @tap="goEmbeddedPreview">组件内嵌预览</button>
+				<button type="default" @tap="canPreviewCurrent">canPreview（当前文件）</button>
+				<button type="default" @tap="isOpenedNow">isOpened</button>
+				<button type="warn" @tap="closeNow">close</button>
+			</view>
+
+			<view class="uni-common-mt">
+				<text>当前文件：</text>
+				<text selectable>{{ currentPath.length > 0 ? currentPath : "(无)" }}</text>
+			</view>
+
+			<view class="uni-common-mt">
+				<text>日志：</text>
+				<view v-for="(l, i) in logs" :key="i">
+					<text selectable>{{ l }}</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script>
+	// #ifdef APP
+	import type {
+		CanPreviewFunc,
+		CanPreviewOptions,
+		CanPreviewSuccess,
+		CloseFunc,
+		CloseOptions,
+		FileSource,
+		IsOpenedFunc,
+		IsOpenedOptions,
+		IsOpenedSuccess,
+		OpenFunc,
+		OpenOptions
+	} from '@/uni_modules/seal-office-online-uts'
+	// #endif
+
+	// #ifndef APP
+	type FileSource = {
+		uri?: string
+		path?: string
+		url?: string
+		fileName?: string
+		fileType?: string
+		title?: string
+		mimeType?: string
+	}
+
+	type OpenOptions = {
+		file: FileSource
+		success?: (res: any) => void
+		fail?: (res: UniError) => void
+		onClose?: (res: any) => void
+		onReturn?: (res: any) => void
+	}
+
+	type CanPreviewOptions = {
+		file: FileSource
+		success?: (res: any) => void
+		fail?: (res: UniError) => void
+	}
+
+	type CanPreviewSuccess = {
+		canPreview: boolean
+	}
+
+	type IsOpenedOptions = {
+		success?: (res: any) => void
+		fail?: (res: UniError) => void
+	}
+
+	type IsOpenedSuccess = {
+		opened: boolean
+	}
+
+	type CloseOptions = {
+		success?: (res: any) => void
+		fail?: (res: UniError) => void
+	}
+
+	type OpenFunc = (options: OpenOptions) => void
+	type CanPreviewFunc = (options: CanPreviewOptions) => void
+	type IsOpenedFunc = (options: IsOpenedOptions) => void
+	type CloseFunc = (options: CloseOptions) => void
+	// #endif
+
+	let openImpl: OpenFunc | null = null
+	let canPreviewImpl: CanPreviewFunc | null = null
+	let isOpenedImpl: IsOpenedFunc | null = null
+	let closeImpl: CloseFunc | null = null
+	// #ifdef APP-PLUS || APP-HARMONY || APP-ANDROID || APP-IOS || MP-WEIXIN
+	import {
+		open as _open,
+		canPreview as _canPreview,
+		isOpened as _isOpened,
+		close as _close
+	} from '@/uni_modules/seal-office-online-uts'
+	openImpl = _open
+	canPreviewImpl = _canPreview
+	isOpenedImpl = _isOpened
+	closeImpl = _close
+	// #endif
+
+	function messageOr(value: string | null, fallback: string): string {
+		const text = value ?? ''
+		return text.length > 0 ? text : fallback
+	}
+
+	export default {
+		data() {
+			return {
+				title: '文档预览插件测试',
+				url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+				currentPath: '',
+				logs: [] as Array<string>
+			}
+		},
+		methods: {
+			pushLog(msg: string) {
+				const next = (this.logs ?? []).slice(-30)
+				next.push(new Date().toISOString() + ' ' + msg)
+				this.logs = next
+			},
+			goEmbeddedPreview() {
+				uni.navigateTo({
+					url: '/pages/DocumentPreview/EmbeddedPreview'
+				})
+			},
+			downloadAndOpen() {
+				this.pushLog('tap downloadAndOpen')
+				const that = this
+				uni.downloadFile({
+					url: that.url,
+					success(res) {
+						that.pushLog('download success status=' + res.statusCode)
+						if (res.statusCode != 200) {
+							uni.showToast({ title: '下载失败:' + res.statusCode, icon: 'none' })
+							return
+						}
+						that.currentPath = res.tempFilePath
+						that.pushLog('download path=' + JSON.stringify(res.tempFilePath))
+						that.openByPath(res.tempFilePath, 'download.pdf')
+					},
+					fail(e) {
+						that.pushLog('download fail ' + (e.errMsg ?? ''))
+						uni.showToast({ title: '下载失败:' + (e.errMsg ?? ''), icon: 'none' })
+					}
+				})
+			},
+			openUrlDirect() {
+				this.pushLog('tap openUrlDirect')
+				const that = this
+				if (that.url.length == 0) {
+					uni.showToast({ title: '请输入URL', icon: 'none' })
+					return
+				}
+				const file = {} as FileSource
+				file.url = that.url
+				const options: OpenOptions = {
+					file,
+					success(_res: any) {
+						that.pushLog('openUrlDirect success')
+						console.log('preview opened')
+					},
+					onClose(_res: any) {
+						that.pushLog('onClose')
+						uni.showToast({ title: '预览已关闭', icon: 'none' })
+					},
+					onReturn(_res: any) {
+						that.pushLog('onReturn')
+						uni.showToast({ title: '已返回应用', icon: 'none' })
+					},
+					fail(e: UniError) {
+						that.pushLog('openUrlDirect fail ' + (e.errMsg ?? ''))
+						uni.showToast({ title: messageOr(e.errMsg, '预览失败'), icon: 'none' })
+					}
+				}
+				that.safeOpen(options)
+			},
+			chooseAndOpen() {
+				this.pushLog('tap chooseAndOpen')
+				const that = this
+				const guessName = (p: string): string => {
+					const q = (p ?? '').split('?')[0]
+					const i = q.lastIndexOf('/')
+					return i >= 0 ? q.substring(i + 1) : q
+				}
+				uni.chooseFile({
+					count: 1,
+					success(res) {
+						that.pushLog('chooseFile success')
+						let path = ''
+						let name = ''
+						const files = res.tempFiles ?? []
+						if (files.length > 0) {
+							path = files[0].path ?? ''
+							name = files[0].name ?? ''
+						}
+						if (path.length == 0) {
+							const tempPaths = res.tempFilePaths ?? []
+							path = tempPaths.length > 0 ? tempPaths[0] : ''
+						}
+						that.currentPath = path
+						if (name.length == 0) name = guessName(path)
+						if (name.length == 0) name = 'choose'
+						that.openByPath(path, name)
+					},
+					fail(e) {
+						that.pushLog('chooseFile fail ' + (e.errMsg ?? ''))
+						uni.showToast({ title: '选择失败:' + (e.errMsg ?? ''), icon: 'none' })
+					}
+				})
+			},
+			openByPath(path: string, fileName: string) {
+				this.pushLog('openByPath path=' + JSON.stringify(path))
+				const that = this
+				if (path.length == 0) {
+					uni.showToast({ title: '无可预览文件', icon: 'none' })
+					return
+				}
+				const file = {} as FileSource
+				if (path.indexOf('://') >= 0) {
+					file.uri = path
+				} else {
+					file.path = path
+				}
+				file.fileName = fileName
+				const options: OpenOptions = {
+					file,
+					success(_res: any) {
+						that.pushLog('openByPath success')
+						console.log('preview opened')
+					},
+					onClose(_res: any) {
+						that.pushLog('onClose')
+						uni.showToast({ title: '预览已关闭', icon: 'none' })
+					},
+					onReturn(_res: any) {
+						that.pushLog('onReturn')
+						uni.showToast({ title: '已返回应用', icon: 'none' })
+					},
+					fail(e: UniError) {
+						that.pushLog('openByPath fail ' + (e.errMsg ?? ''))
+						uni.showToast({ title: messageOr(e.errMsg, '预览失败'), icon: 'none' })
+					}
+				}
+				that.safeOpen(options)
+			},
+			canPreviewCurrent() {
+				this.pushLog('tap canPreviewCurrent')
+				const that = this
+				if (that.currentPath.length == 0) {
+					uni.showToast({ title: '请先下载或选择文件', icon: 'none' })
+					return
+				}
+				const file = {} as FileSource
+				if (that.currentPath.indexOf('://') >= 0) {
+					file.uri = that.currentPath
+				} else {
+					file.path = that.currentPath
+				}
+				const options: CanPreviewOptions = {
+					file,
+					success(res: any) {
+						const result = res as CanPreviewSuccess
+						that.pushLog('canPreview=' + result.canPreview)
+						uni.showToast({ title: 'canPreview=' + result.canPreview, icon: 'none' })
+					},
+					fail(e: UniError) {
+						that.pushLog('canPreview fail ' + (e.errMsg ?? ''))
+						uni.showToast({ title: messageOr(e.errMsg, 'canPreview失败'), icon: 'none' })
+					}
+				}
+				that.safeCanPreview(options)
+			},
+			isOpenedNow() {
+				this.pushLog('tap isOpenedNow')
+				const that = this
+				const options: IsOpenedOptions = {
+					success(res: any) {
+						const result = res as IsOpenedSuccess
+						that.pushLog('opened=' + result.opened)
+						uni.showToast({ title: 'opened=' + result.opened, icon: 'none' })
+					},
+					fail(e: UniError) {
+						that.pushLog('isOpened fail ' + (e.errMsg ?? ''))
+						uni.showToast({ title: messageOr(e.errMsg, 'isOpened失败'), icon: 'none' })
+					}
+				}
+				that.safeIsOpened(options)
+			},
+			closeNow() {
+				this.pushLog('tap closeNow')
+				const that = this
+				const options: CloseOptions = {
+					success(_res: any) {
+						that.pushLog('close success')
+						uni.showToast({ title: '已关闭', icon: 'none' })
+					},
+					fail(e: UniError) {
+						that.pushLog('close fail ' + (e.errMsg ?? ''))
+						uni.showToast({ title: messageOr(e.errMsg, 'close失败'), icon: 'none' })
+					}
+				}
+				that.safeClose(options)
+			}
+			,
+			safeOpen(options: OpenOptions) {
+				this.pushLog('call open')
+				const impl = openImpl
+				if (impl == null) {
+					this.pushLog('openImpl=null')
+					uni.showToast({ title: '当前平台不支持', icon: 'none' })
+					return
+				}
+				try {
+					impl(options)
+					this.pushLog('openImpl called')
+				} catch (e) {
+					this.pushLog('openImpl throw ' + JSON.stringify(e))
+					uni.showToast({ title: 'open异常', icon: 'none' })
+				}
+			},
+			safeCanPreview(options: CanPreviewOptions) {
+				this.pushLog('call canPreview')
+				const impl = canPreviewImpl
+				if (impl == null) {
+					this.pushLog('canPreviewImpl=null')
+					uni.showToast({ title: '当前平台不支持', icon: 'none' })
+					return
+				}
+				try {
+					impl(options)
+					this.pushLog('canPreviewImpl called')
+				} catch (e) {
+					this.pushLog('canPreviewImpl throw ' + JSON.stringify(e))
+					uni.showToast({ title: 'canPreview异常', icon: 'none' })
+				}
+			},
+			safeIsOpened(options: IsOpenedOptions) {
+				this.pushLog('call isOpened')
+				const impl = isOpenedImpl
+				if (impl == null) {
+					this.pushLog('isOpenedImpl=null')
+					uni.showToast({ title: '当前平台不支持', icon: 'none' })
+					return
+				}
+				try {
+					impl(options)
+					this.pushLog('isOpenedImpl called')
+				} catch (e) {
+					this.pushLog('isOpenedImpl throw ' + JSON.stringify(e))
+					uni.showToast({ title: 'isOpened异常', icon: 'none' })
+				}
+			},
+			safeClose(options: CloseOptions) {
+				this.pushLog('call close')
+				const impl = closeImpl
+				if (impl == null) {
+					this.pushLog('closeImpl=null')
+					uni.showToast({ title: '当前平台不支持', icon: 'none' })
+					return
+				}
+				try {
+					impl(options)
+					this.pushLog('closeImpl called')
+				} catch (e) {
+					this.pushLog('closeImpl throw ' + JSON.stringify(e))
+					uni.showToast({ title: 'close异常', icon: 'none' })
+				}
+			}
+		}
+	}
+</script>
+
+<style>
+	@import '@/common/uni-uvue.css';
+
+.uni-container {
+	flex: 1;
+}
+</style>
