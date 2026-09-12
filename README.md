@@ -4,7 +4,7 @@ Demo：[Gitee](https://gitee.com/twofloor/seal-office-uts-demo) · [GitHub](http
 
 `seal-office-online-uts` 是面向 uni-app、uni-app x 的 UTS 文档预览插件，提供统一函数式 API 和可嵌入页面的 `<seal-office-online-uts>` 组件，可预览 PDF、Word、Excel、PowerPoint 文件。
 
-👏👏👏欢迎加WX（BJGFCYY）或Q（2480621579）咨询。
+👏👏👏欢迎加W（BJGFCYY）或Q（2480621579）咨询。
 
 ## 支持平台
 
