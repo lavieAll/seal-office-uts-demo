@@ -94,7 +94,12 @@ export default {
       // #endif
     },
     handleLoad(detail: UTSJSONObject) {
+      // #ifdef APP-HARMONY
+      const state = typeof detail["state"] == "string" ? detail["state"] as string : ""
+      // #endif
+      // #ifndef APP-HARMONY
       const state = detail.getString("state") ?? ""
+      // #endif
       if (state.length > 0) {
         this.stateText = state
       }
@@ -102,7 +107,13 @@ export default {
     },
     handleError(err: UTSJSONObject) {
       this.stateText = "error"
-      this.pushLog("error " + (err.getString("errMsg") ?? ""))
+      // #ifdef APP-HARMONY
+      const message = typeof err["errMsg"] == "string" ? err["errMsg"] as string : ""
+      // #endif
+      // #ifndef APP-HARMONY
+      const message = err.getString("errMsg") ?? ""
+      // #endif
+      this.pushLog("error " + message)
     }
   },
   onLoad() {
