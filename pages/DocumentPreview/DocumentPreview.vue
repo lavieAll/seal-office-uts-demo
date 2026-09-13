@@ -48,7 +48,7 @@
 		data() {
 			return {
 				title: '文档预览插件测试',
-				url: 'http://silianpan.cn/upload/2022/01/01/2.pdf',
+				url: 'https://gitee.com/mirrors/pdf.js/raw/master/web/compressed.tracemonkey-pldi-09.pdf',
 				currentPath: '',
 				logs: []
 			}
