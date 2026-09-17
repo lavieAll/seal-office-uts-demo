@@ -1,6 +1,6 @@
 # seal-office-online-uts 文档预览插件
 
-Demo：[Gitee](https://gitee.com/twofloor/seal-office-uts-demo) · [GitHub](https://github.com/lavieAll/seal-office-uts-demo)
+Demo：[Gitee](https://gitee.com/twofloor/seal-office-uts-demo) · [GitHub](https://github.com/lavieAll/seal-office-uts-demo) · [插件地址](https://ext.dcloud.net.cn/plugin?id=12731)
 
 `seal-office-online-uts` 是面向 uni-app、uni-app x 的 UTS 文档预览插件，提供统一函数式 API 和可嵌入页面的 `<seal-office-online-uts>` 组件，可预览 PDF、Word、Excel、PowerPoint 文件。
 
